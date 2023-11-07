@@ -41,6 +41,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/spf13/viper/internal/encoding"
+	"github.com/spf13/viper/internal/encoding/cnf"
 	"github.com/spf13/viper/internal/encoding/dotenv"
 	"github.com/spf13/viper/internal/encoding/hcl"
 	"github.com/spf13/viper/internal/encoding/ini"
@@ -301,7 +302,7 @@ func NewWithOptions(opts ...Option) *Viper {
 // can use it in their testing as well.
 func Reset() {
 	v = New()
-	SupportedExts = []string{"json", "toml", "yaml", "yml", "properties", "props", "prop", "hcl", "tfvars", "dotenv", "env", "ini"}
+	SupportedExts = []string{"json", "toml", "yaml", "yml", "properties", "props", "prop", "hcl", "tfvars", "dotenv", "env", "ini", "cnf"}
 	SupportedRemoteProviders = []string{"etcd", "etcd3", "consul", "firestore", "nats"}
 }
 
@@ -352,6 +353,16 @@ func (v *Viper) resetEncoding() {
 
 		encoderRegistry.RegisterEncoder("ini", codec)
 		decoderRegistry.RegisterDecoder("ini", codec)
+	}
+
+	{
+		codec := cnf.Codec{
+			KeyDelimiter: v.keyDelim,
+			LoadOptions:  v.iniLoadOptions,
+		}
+
+		encoderRegistry.RegisterEncoder("cnf", codec)
+		decoderRegistry.RegisterDecoder("cnf", codec)
 	}
 
 	{
@@ -418,7 +429,7 @@ type RemoteProvider interface {
 }
 
 // SupportedExts are universally supported extensions.
-var SupportedExts = []string{"json", "toml", "yaml", "yml", "properties", "props", "prop", "hcl", "tfvars", "dotenv", "env", "ini"}
+var SupportedExts = []string{"json", "toml", "yaml", "yml", "properties", "props", "prop", "hcl", "tfvars", "dotenv", "env", "ini", "cnf"}
 
 // SupportedRemoteProviders are universally supported remote providers.
 var SupportedRemoteProviders = []string{"etcd", "etcd3", "consul", "firestore", "nats"}
@@ -1754,7 +1765,7 @@ func (v *Viper) unmarshalReader(in io.Reader, c map[string]any) error {
 	buf.ReadFrom(in)
 
 	switch format := strings.ToLower(v.getConfigType()); format {
-	case "yaml", "yml", "json", "toml", "hcl", "tfvars", "ini", "properties", "props", "prop", "dotenv", "env":
+	case "yaml", "yml", "json", "toml", "hcl", "tfvars", "ini", "cnf", "properties", "props", "prop", "dotenv", "env":
 		err := v.decoderRegistry.Decode(format, buf.Bytes(), c)
 		if err != nil {
 			return ConfigParseError{err}
@@ -1769,7 +1780,7 @@ func (v *Viper) unmarshalReader(in io.Reader, c map[string]any) error {
 func (v *Viper) marshalWriter(f afero.File, configType string) error {
 	c := v.AllSettings()
 	switch configType {
-	case "yaml", "yml", "json", "toml", "hcl", "tfvars", "ini", "prop", "props", "properties", "dotenv", "env":
+	case "yaml", "yml", "json", "toml", "hcl", "tfvars", "ini", "cnf", "prop", "props", "properties", "dotenv", "env":
 		b, err := v.encoderRegistry.Encode(configType, c)
 		if err != nil {
 			return ConfigMarshalError{err}
